@@ -1,72 +1,79 @@
-import { useEffect, useState } from "react"
-import Home from "./Home"
+import { useEffect, useState } from "react";
+import Home from "./Home";
 import Browse from "./Browse";
 import { useLocation } from "react-router-dom";
 import Details from "./Details";
 
 function Fetch() {
-
   const [book, setBook] = useState([]);
   const location = useLocation();
 
-  async function getData() {
-
+  async function getBooks(url, category, prefix) {
     try {
+      const response = await fetch(url);
 
-      let res1 = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=subject:fiction&maxResults=10`
+      if (!response.ok) {
+        console.log(`${category} API Error: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json();
+
+      if (!data.items || !Array.isArray(data.items)) {
+        console.log(`${category}: No books found`);
+        return [];
+      }
+
+      return data.items.map((b, i) => ({
+        id: prefix + i,
+        title: b.volumeInfo?.title || "Unknown Title",
+        author: b.volumeInfo?.authors?.[0] || "Unknown Author",
+        cover:
+          b.volumeInfo?.imageLinks?.thumbnail ||
+          "https://via.placeholder.com/150x220?text=No+Cover",
+        description:
+          b.volumeInfo?.description || "No description available.",
+        rating: b.volumeInfo?.averageRating || "No Rating",
+        category: category,
+      }));
+    } catch (error) {
+      console.log(`${category} Error:`, error);
+      return [];
+    }
+  }
+
+  async function getData() {
+    try {
+      const fiction = await getBooks(
+        "https://www.googleapis.com/books/v1/volumes?q=subject:fiction&maxResults=10",
+        "Fiction",
+        "f"
       );
 
-      let res2 = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=subject:nonfiction&maxResults=10`
+      const nonFiction = await getBooks(
+        "https://www.googleapis.com/books/v1/volumes?q=subject:nonfiction&maxResults=10",
+        "Non-Fiction",
+        "n"
       );
 
-      let res3 = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=subject:science-fiction&maxResults=10`
+      const sciFiction = await getBooks(
+        "https://www.googleapis.com/books/v1/volumes?q=subject:science-fiction&maxResults=10",
+        "Sci-Fiction",
+        "s"
       );
 
-      let data1 = await res1.json();
-      let data2 = await res2.json();
-      let data3 = await res3.json();
+      const allBooks = [
+        ...fiction,
+        ...nonFiction,
+        ...sciFiction,
+      ];
 
-      console.log(data1);
-      console.log(data2);
-      console.log(data3);
+      setBook(allBooks);
 
-      let fic = data1.items.map((b, i) => ({
-        id: "f" + i,
-        title: b.volumeInfo.title,
-        author: b.volumeInfo.authors?.[0],
-        cover: b.volumeInfo.imageLinks?.thumbnail,
-        description: b.volumeInfo.description,
-        rating: b.volumeInfo.averageRating || "No Rating",
-        category: "Fiction"
-      }));
-
-      let nonfic = data2.items.map((b, i) => ({
-        id: "n" + i,
-        title: b.volumeInfo.title,
-        author: b.volumeInfo.authors?.[0],
-        cover: b.volumeInfo.imageLinks?.thumbnail,
-        description: b.volumeInfo.description,
-        rating: b.volumeInfo.averageRating || "No Rating",
-        category: "Non-Fiction"
-      }));
-
-      let scific = data3.items.map((b, i) => ({
-        id: "s" + i,
-        title: b.volumeInfo.title,
-        author: b.volumeInfo.authors?.[0],
-        cover: b.volumeInfo.imageLinks?.thumbnail,
-        description: b.volumeInfo.description,
-        rating: b.volumeInfo.averageRating || "No Rating",
-        category: "Sci-Fiction"
-      }));
-
-      setBook([...fic, ...nonfic, ...scific]);
-
-    } catch (err) {
-      console.log(err);
+      console.log("Books loaded:", allBooks);
+    } catch (error) {
+      console.log("Book API Error:", error);
+      setBook([]);
     }
   }
 
@@ -75,30 +82,16 @@ function Fetch() {
   }, []);
 
   return (
-    <> 
-        {
-      location.pathname === "/"
-
-      ?
-
-      <Home book={book} />
-
-      :
-
-      location.pathname.includes("/book/")
-
-      ?
-
-      <Details book={book} />
-
-      :
-
-      <Browse book={book} />
-
-    }
-      
+    <>
+      {location.pathname === "/" ? (
+        <Home book={book} />
+      ) : location.pathname.includes("/book/") ? (
+        <Details book={book} />
+      ) : (
+        <Browse book={book} />
+      )}
     </>
-  )
+  );
 }
 
 export default Fetch;
